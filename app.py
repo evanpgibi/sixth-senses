@@ -197,9 +197,26 @@ code{background:#f0f0f0;padding:.1em .3em}
 </style>
 <h1>Colour card reader</h1>
 <form method=post enctype=multipart/form-data>
-  <input type=file name=image accept="image/*" required>
+  <input type=file name=image accept="image/*" capture="environment" required>
   <button>Analyse</button>
 </form>
+<script>
+// Shrink the photo in the browser first: Vercel rejects request bodies over 4.5 MB.
+document.querySelector('form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target.image.files[0]; if (!f) return;
+  const btn = e.target.querySelector('button'); btn.disabled = true; btn.textContent = 'Analysing...';
+  const bmp = await createImageBitmap(f);
+  const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+  const fd = new FormData(); fd.append('image', blob, 'card.jpg');
+  const res = await fetch('/', { method: 'POST', body: fd });
+  const html = await res.text(); document.open(); document.write(html); document.close();
+});
+</script>
 {% if error %}<p class=warn>{{ error }}</p>{% endif %}
 {% if out %}
   {% if out.result %}
